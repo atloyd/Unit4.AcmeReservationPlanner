@@ -3,42 +3,42 @@ const express = require('express');
 const app = express();
 const uuid = require('uuid');
 const client = new pg.Client(
-	process.env.DB_NAME || 'postgres://localhost/acme_vacations'
+	process.env.DB_NAME || 'postgres://localhost/the_acme_reservation_planner'
 );
 
 const createTables = async () => {
 	let SQL = /* SQL */ `
-    DROP TABLE IF EXISTS vacations;
-    DROP TABLE IF EXISTS users;
-    DROP TABLE IF EXISTS places;
+    DROP TABLE IF EXISTS reservation;
+    DROP TABLE IF EXISTS customer;
+    DROP TABLE IF EXISTS restaurant;
 
-    CREATE TABLE users(
+    CREATE TABLE customer(
         id UUID PRIMARY KEY,
         name VARCHAR(50) NOT NULL UNIQUE
     );
 
-    CREATE TABLE places(
+    CREATE TABLE restaurant(
         id UUID PRIMARY KEY,
         name VARCHAR(50) NOT NULL UNIQUE
     );
 
-    CREATE TABLE vacations(
+    CREATE TABLE reservation(
         id UUID PRIMARY KEY,
-        departure_date DATE NOT NULL,
-        user_id UUID REFERENCES users(id) NOT NULL,
-        place_id UUID REFERENCES places(id) NOT NULL
+        reservation_date DATE NOT NULL,
+        party_count INTEGER NOT NULL,
+        customer_id UUID REFERENCES customer(id) NOT NULL,
+        restaurant_id UUID REFERENCES restaurant(id) NOT NULL
     );
     `;
 
 	await client.query(SQL);
-	
 };
 
 // create user
 
-const createUser = async ({ name }) => {
+const createCustomer = async ({ name }) => {
 	const SQL = /*SQL*/ `
-    INSERT INTO users(id, name) VALUES($1, $2) RETURNING *
+    INSERT INTO customer(id, name) VALUES($1, $2) RETURNING *
     `;
 	const response = await client.query(SQL, [uuid.v4(), name]);
 	return response.rows[0];
@@ -46,44 +46,50 @@ const createUser = async ({ name }) => {
 
 // create place
 
-const createPlace = async ({ name }) => {
+const createRestaurant = async ({ name }) => {
 	const SQL = /*SQL*/ `
-    INSERT INTO places(id, name) VALUES($1, $2) RETURNING *
+    INSERT INTO restaurant(id, name) VALUES($1, $2) RETURNING *
     `;
 	const response = await client.query(SQL, [uuid.v4(), name]);
 	return response.rows[0];
 };
 
-const fetchUsers = async () => {
+const fetchCustomers = async () => {
 	const SQL = /* SQL */ `
-    SELECT * FROM users
+    SELECT * FROM customer
     `;
 	const response = await client.query(SQL);
 	return response.rows;
 };
 
-const fetchPlaces = async () => {
+const fetchRestaurants = async () => {
 	const SQL = /* SQL */ `
-    SELECT * FROM places
+    SELECT * FROM restaurant
     `;
 	const response = await client.query(SQL);
 	return response.rows;
 };
 
-const createVacation = async ({ place_id, user_id, departure_date }) => {
+const createReservations = async ({
+	reservation_date,
+	party_count,
+	restaurant_id,
+	customer_id,
+}) => {
 	const SQL = /*SQL*/ `
-      INSERT INTO vacations(id, place_id, user_id, departure_date) VALUES($1, $2, $3, $4) RETURNING *
+      INSERT INTO reservation(id, reservation_date, party_count, restaurant_id, customer_id) VALUES($1, $2, $3, $4, $5) RETURNING *
     `;
 	const response = await client.query(SQL, [
 		uuid.v4(),
-		place_id,
-		user_id,
-		departure_date,
+		reservation_date,
+		party_count,
+		restaurant_id,
+		customer_id,
 	]);
 	return response.rows[0];
 };
 
-const fetchVacations = async () => {
+const fetchReservations = async () => {
 	const SQL = /*SQL*/ `
   SELECT * FROM vacations
     `;
@@ -91,22 +97,22 @@ const fetchVacations = async () => {
 	return response.rows;
 };
 
-const destroyVacation = async ({ id, user_id }) => {
+const destroyReservations = async ({ id, customer_id }) => {
 	const SQL = /*SQL*/ `
-      DELETE FROM vacations
-      WHERE id = $1 AND user_id = $2
+      DELETE FROM reservation
+      WHERE id = $1 AND customer_id = $2
     `;
-	await client.query(SQL, [id, user_id]);
+	await client.query(SQL, [id, customer_id]);
 };
 
 module.exports = {
 	client,
 	createTables,
-	createPlace,
-	createUser,
-	fetchPlaces,
-	fetchUsers,
-	createVacation,
-	fetchVacations,
-	destroyVacation,
+	createRestaurant,
+	createCustomer,
+	fetchRestaurants,
+	fetchCustomers,
+	createReservations,
+	fetchReservations,
+	destroyReservations,
 };
